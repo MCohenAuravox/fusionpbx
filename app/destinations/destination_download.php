@@ -174,7 +174,15 @@
 			$list_row_onclick = "if (!this.checked) { document.getElementById('checkbox_all').checked = false; }";
 			echo "<tr class='list-row' href='".$list_row_url."'>\n";
 			echo "	<td class='checkbox'>\n";
-			echo "		<input type='checkbox' name='column_group[]' id='checkbox_".$x."' value=\"".$column_name."\" onclick=\"".$list_row_onclick."\">\n";
+			if ($column_name == "destination_type" || $column_name == "destination_prefix" || $column_name == "destination_number"
+			|| $column_name == "destination_context" || $column_name == "destination_enabled" || $column_name == "destination_description"
+			|| $column_name == "destination_app" || $column_name == "destination_data"){
+				echo "		<input checked type='checkbox' name='column_group[]' id='checkbox_".$x."' value=\"".$column_name."\" onclick=\"".$list_row_onclick."\">\n";
+
+			}
+			else{
+				echo "		<input type='checkbox' name='column_group[]' id='checkbox_".$x."' value=\"".$column_name."\" onclick=\"".$list_row_onclick."\">\n";
+			}
 			echo "	</td>\n";
 			echo "	<td onclick=\"document.getElementById('checkbox_".$x."').checked = document.getElementById('checkbox_".$x."').checked ? false : true; ".$list_row_onclick."\">".$column_name."</td>";
 			echo "</tr>";
