@@ -39,6 +39,63 @@
 		exit;
 	}
 
+
+
+//define the functions
+	function array2csv(array &$array) {
+		if (count($array) == 0) {
+			return null;
+		}
+		ob_start();
+		$df = fopen("php://output", 'w');
+		fputcsv($df, array_keys(reset($array)));
+		foreach ($array as $row) {
+			fputcsv($df, $row);
+		}
+		fclose($df);
+		return ob_get_clean();
+	}
+
+	function download_send_headers($filename) {
+		// disable caching
+		$now = gmdate("D, d M Y H:i:s");
+		header("Expires: Tue, 03 Jul 2001 06:00:00 GMT");
+		header("Cache-Control: max-age=0, no-cache, must-revalidate, proxy-revalidate");
+		header("Last-Modified: {$now} GMT");
+
+		// force download
+		header("Content-Type: application/force-download");
+		header("Content-Type: application/octet-stream");
+		header("Content-Type: application/download");
+
+		// disposition / encoding on response body
+		header("Content-Disposition: attachment;filename={$filename}");
+		header("Content-Transfer-Encoding: binary");
+	}
+
+//get the extensions from the database and send them as output
+	if ($_SESSION['myResult'] != "" && $_GET['export'] == 'true') {
+
+		//validate the token
+			/*$token = new token;
+			if (!$token->validate($_SERVER['PHP_SELF'])) {
+				message::add($text['message-invalid_token'],'negative');
+				header('Location: fax.php');
+				exit;
+			}*/
+
+			download_send_headers("fax_export_".date("Y-m-d").".csv");
+			echo array2csv($_SESSION['myResult']);
+			
+			//$_SESSION['myResult'] = "";
+			
+			exit;
+		}
+
+
+
+
+
 //add multi-lingual support
 	$language = new text;
 	$text = $language->get();
@@ -67,7 +124,7 @@
 				break;
 		}
 
-		header('Location: fax.php'.($search != '' ? '?search='.urlencode($search) : null));
+		header('Location: faxz.php'.($search != '' ? '?search='.urlencode($search) : null));
 		exit;
 	}
 
@@ -186,6 +243,10 @@
 	$result = $database->select($sql, $parameters, 'all');
 	unset($sql, $parameters);
 
+
+	$_SESSION['myResult'] = $result;
+	
+
 //create token
 	$object = new token;
 	$token = $object->create($_SERVER['PHP_SELF']);
@@ -198,6 +259,10 @@
 	echo "<div class='action_bar' id='action_bar'>\n";
 	echo "	<div class='heading'><b>".$text['title-fax']." (".$num_rows.")</b></div>\n";
 	echo "	<div class='actions'>\n";
+	//
+	//echo button::create(['type'=>'submit','label'=>$text['button-export'],'icon'=>$_SESSION['theme']['button_icon_export'],'id'=>'btn_save','style'=>'margin-left: 15px;']);
+	echo "<button onclick='location=\"fax.php?export=true\"' type='submit' id='btn_save' alt='Export' title='Export' class='btn btn-default' style='margin-left: 15px;'><span class='fas fa-file-export fa-fw'></span><span class='button-label hide-md-dn pad'>Export</span></button>";
+	//
 	if (permission_exists('fax_extension_add')) {
 		echo button::create(['type'=>'button','label'=>$text['button-add'],'icon'=>$_SESSION['theme']['button_icon_add'],'id'=>'btn_add','link'=>'fax_edit.php']);
 	}
@@ -229,9 +294,12 @@
 	echo $text['description']."\n";
 	echo "<br /><br />\n";
 
-	echo "<form id='form_list' method='post'>\n";
+	//echo "<form id='form_list' method='post'>\n";
+	echo "<form id='form_list' onsubmit='mySubmit()' method='post'>\n";
 	echo "<input type='hidden' id='action' name='action' value=''>\n";
 	echo "<input type='hidden' name='search' value=\"".escape($search)."\">\n";
+	
+	echo "<input type='hidden' id='myId' name='myId' value='' />";
 
 	echo "<table class='list'>\n";
 	echo "<tr class='list-header'>\n";
@@ -271,6 +339,9 @@
 				echo escape($row['fax_name']);
 			}
 			echo "	</td>\n";
+			//echo "	<td>".escape($row['fax_extension'])."</td>\n";
+			$_SESSION["".$row['fax_uuid']] = escape($row['fax_extension']);
+			//echo "	<td><input readonly type='text' name='my_faxext".$row['fax_uuid']."' value='".escape($row['fax_extension'])."' /></td>\n";
 			echo "	<td>".escape($row['fax_extension'])."</td>\n";
 			echo "	<td class='overflow' style='min-width: 25%;'>".escape(str_replace("\\",'', $row['fax_email']))."&nbsp;</td>\n";
 			echo "	<td class='no-link no-wrap'>";
@@ -287,6 +358,8 @@
 					$box = 'inbox';
 				}
 				echo "		<a href='".$file."?order_by=fax_date&order=desc&id=".urlencode($row['fax_uuid'])."&box=".$box."'>".$text['label-inbox']."</a>&nbsp;&nbsp;";
+				echo "		<a href='fax_outbox.php?id=".urlencode($row['fax_uuid'])."'>Outbox</a>&nbsp;&nbsp;";
+				//echo "		<input id='btn".$row['fax_uuid']."' type='button' name='btnSubmit' value='Outbox' onclick=\"getId('".$row['fax_uuid']."')\" />&nbsp;&nbsp;";
 			}
 			if (permission_exists('fax_sent_view')) {
 				echo "		<a href='fax_files.php?order_by=fax_date&order=desc&id=".urlencode($row['fax_uuid'])."&box=sent'>".$text['label-sent']."</a>&nbsp;&nbsp;";
@@ -317,6 +390,13 @@
 	echo "<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
 
 	echo "</form>\n";
+
+
+	echo "<span id='output'></span>\n";
+	echo "<script type='text/javascript'>\n";
+	echo "function getId(id){ document.getElementById('myId').value = id; document.getElementById('btn' + id).type = 'submit'; }\n";
+	echo "function mySubmit(){ var myId = document.getElementById('myId').value; var your_form = document.getElementById('form_list'); your_form.action = 'fax_outbox.php?id=' + myId; }\n";
+	echo "</script>\n";
 
 //include the footer
 	require_once "resources/footer.php";
