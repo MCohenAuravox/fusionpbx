@@ -144,7 +144,7 @@
 					$file_name = substr($file, 0, (strlen($file) -4));
 				}
 
-				if (strlen($row['fax_base64']) <= 0) {
+				if (strlen($row['fax_base64']) <= 0 && (strpos($row['accountcode'], $_SESSION['domain_name'], 0) === 0)) {
 					echo "	<tr class='list-row' >\n";
 					echo "	<td>".escape($row['dest'])."</td>";
 					echo "	<td>Sending...</td>";
